@@ -26,15 +26,9 @@ def load_data(csv_root_dir,test_rate,batch_size):
     if __name__ == '__main__':
         print(data_set)
 
-    train_x, test_x, train_y, test_y = train_test_split(data_set[:, :-1], data_set[:, -1], random_state=1,test_size=test_rate)
-    train_x = np.array([[[0,]],[[0,]],[[0,]]]) + train_x  #利用广播机制扩展
-    test_x = np.array([[[0,]],[[0,]],[[0,]]]) + test_x
+    train_x, test_x, train_y, test_y = train_test_split(data_set[:, :-1], data_set[:, -1], shuffle=False,test_size=test_rate)
     if __name__ == '__main__':
-        print(train_x.shape,test_x.shape)
-    train_x = np.reshape(train_x,(-1,3,1,4))  #转换成图像的模式，即N张图像，每个图像有3通道加长宽
-    test_x = np.reshape(test_x,(-1,3,1,4))
-
-    if __name__ == '__main__':
+        print(train_y,test_y)
         print(train_x.shape,test_x.shape)
 
     tensor_train_x,tensor_train_y = torch.FloatTensor(train_x),torch.FloatTensor(train_y)
@@ -46,7 +40,8 @@ def load_data(csv_root_dir,test_rate,batch_size):
     if __name__ == '__main__':
         print(train_data_set)
         print(test_data_set)
+
     return DataLoader(train_data_set,batch_size=batch_size),DataLoader(test_data_set) #返回两个数据加载器
 
 if __name__=='__main__':
-    train_loader,test_loader=load_data("./")
+    train_loader,test_loader=load_data("/", 0.3, 64)

@@ -5,7 +5,7 @@ import torch
 from flwr.common import Metrics
 import matplotlib.pyplot as plt
 import numpy as np
-from ForestyFireDataSet.dataload_forlstm import load_data
+from history_data_dir.ForestyFireDataSet.dataload_forlstm import load_data
 from models.lstm_model import Config, Net
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

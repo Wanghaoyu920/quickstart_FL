@@ -73,8 +73,8 @@ def load_data(csv_root_dir,config:Config):
         print(train_data_set)
         print(test_data_set)
 
-    return DataLoader(train_data_set,batch_size=config.batch_size),DataLoader(test_data_set) #返回两个数据加载器 返回的数据应该是三维的
+    return DataLoader(train_data_set,batch_size=config.batch_size),DataLoader(test_data_set,batch_size=config.batch_size) #返回两个数据加载器 返回的数据应该是三维的
 
 if __name__=='__main__':
-    train_loader,test_loader=load_data("./",Config(train_data_rate=0.55,time_step=20,batch_size=1))
+    train_loader,test_loader=load_data("/", Config(train_data_rate=0.55, time_step=20, batch_size=1))
     print("load_data返回的结果:",train_loader,test_loader)

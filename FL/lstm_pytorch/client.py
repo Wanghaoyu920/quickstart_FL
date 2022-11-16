@@ -4,13 +4,9 @@ import sys
 import flwr as fl
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, Normalize, ToTensor
 from tqdm import tqdm
 from models.lstm_model import Net,Config
-from ForestyFireDataSet.dataload_forlstm import load_data
+from history_data_dir.ForestyFireDataSet.dataload_forlstm import load_data
 warnings.filterwarnings("ignore", category=UserWarning)
 # import os
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'

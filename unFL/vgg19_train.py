@@ -1,18 +1,11 @@
 import warnings
-from collections import OrderedDict
 
-import flwr as fl
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision.datasets import CIFAR10
-from torchvision.transforms import Compose, Normalize, ToTensor
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from models import vgg19_model
-from dataset.dataload_forvgg import load_data
+from history_data_dir.dataset.dataload_forvgg import load_data
 warnings.filterwarnings("ignore", category=UserWarning)
 # import os
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -48,7 +41,7 @@ def test(net, testloader):
 
 
 net = vgg19_model.get_model().to(DEVICE)
-trainloader, testloader = load_data("../dataset")  #两个数据加载器（一个训练，一个测试）
+trainloader, testloader = load_data("../history_data_dir/dataset")  #两个数据加载器（一个训练，一个测试）
 
 num_rounds = 100 #训练轮次
 writer = SummaryWriter('../logs/unFl_vgg19') #使用tensorboard可视化
