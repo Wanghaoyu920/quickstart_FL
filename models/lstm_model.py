@@ -20,7 +20,7 @@ class Config:
 
 
     #网络参数
-    input_size = 8             #LSTM 模型的输入层大小，即模型的参数
+    input_size = 12             #LSTM 模型的输入层大小，即模型的参数
     hidden_size = 64           # LSTM的隐藏层大小，也是输出大小，也是Liner的输入层大小
     output_size = 1             #Liner层的输出大小
     lstm_layers = 2             # LSTM的堆叠层数
@@ -34,8 +34,8 @@ class Config:
     shuffle_train_data = True   # 是否对训练数据做shuffle
 
     train_data_rate = 0.65      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
-    dataset_days = 92           #数据集有多少天
-    batch_size = 8
+    dataset_days = 366           #数据集有多少天
+    batch_size = 32
     learning_rate = 0.0002
     epoch = 200                  # 整个训练集被训练多少遍，不考虑早停的前提下
     patience = 3                # 训练多少epoch，验证集没提升就停掉
@@ -70,7 +70,7 @@ class Net(Module):
 #加载数据
 def load_data(csv_root_dir,config:Config):
     # 加载数据文件
-    source_datafile = pd.read_csv(csv_root_dir + "/data/崇礼区201605-201607数据整合导出_OK.csv",
+    source_datafile = pd.read_csv(csv_root_dir + "/data/崇礼区2016数据整合导出_hy_OK.csv",
                                   usecols=['坡度均值','坡向众数','EVI植被指数','到公路距离','到河道距离','PRS','TEM','RHU','PRE','WIN','SSD','GST','Fire'],
                                   dtype=np.float32, index_col=None, header=0)
 
