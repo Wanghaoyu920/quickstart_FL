@@ -20,7 +20,7 @@ class Config:
 
 
     #网络参数
-    input_size = 12             #LSTM 模型的输入层大小，即模型的参数
+    input_size = 13             #LSTM 模型的输入层大小，即模型的参数
     hidden_size = 64           # LSTM的隐藏层大小，也是输出大小，也是Liner的输入层大小
     output_size = 1             #Liner层的输出大小
     lstm_layers = 2             # LSTM的堆叠层数
@@ -35,6 +35,8 @@ class Config:
 
     train_data_rate = 0.65      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     dataset_days = 366           #数据集有多少天
+    squares = 2001          #数据集中有多少个方格
+
     batch_size = 32
     learning_rate = 0.0002
     epoch = 200                  # 整个训练集被训练多少遍，不考虑早停的前提下
@@ -55,7 +57,7 @@ class Net(Module):
         self.lstm = LSTM(input_size=config.input_size, hidden_size=config.hidden_size,
                          num_layers=config.lstm_layers, batch_first=True, dropout=config.dropout_rate)
         self.linear = Linear(in_features=config.hidden_size, out_features=config.output_size)
-
+        # self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, hidden=None):
         lstm_out_, hidden = self.lstm(x, hidden)  #这个hidden就是保证每次循环的时候能够融入之前的数据
@@ -63,15 +65,15 @@ class Net(Module):
         # 也就是我们把整个序列的所有行都穿进去以后，LSTM 给出的结果。
         linear_out = self.linear(lstm_out)
         linear_out = linear_out.squeeze(-1) #以达到降低一维的目的~
-        #linear_out = self.sigmoid(linear_out)
+        # linear_out = self.sigmoid(linear_out)
         return linear_out, hidden
 
 
 #加载数据
 def load_data(csv_root_dir,config:Config):
     # 加载数据文件
-    source_datafile = pd.read_csv(csv_root_dir + "/data/崇礼区2016数据整合导出_hy_OK.csv",
-                                  usecols=['坡度均值','坡向众数','EVI植被指数','到公路距离','到河道距离','PRS','TEM','RHU','PRE','WIN','SSD','GST','Fire'],
+    source_datafile = pd.read_csv(csv_root_dir + "/data/田林县2016数据集_1_OK.csv",
+                                  usecols=['坡度','坡向','EVI','到河道距离','到公路距离','PRS','TEM','RHU','PRE','WIN','WIN_Dir','SSD','GST','Fire'],
                                   dtype=np.float32, index_col=None, header=0)
 
     if __name__=='__main__':
@@ -94,13 +96,13 @@ def load_data(csv_root_dir,config:Config):
     ####生成数据序列，每一个序列中报告N天的数据，例如序列的长度设定为20
     # 则序列[0-19,20-39,...]  [序列数,time_step,10特征]
     x_data_seq = []
-    for fid in  range(2510):  #每一个fid代表一个小方格，即地理上的1km*1km区域。将崇礼区划分为2510个区域。
+    for fid in  range(config.squares):  #每一个fid代表一个小方格，即地理上的1km*1km区域。将崇礼区划分为2510个区域。
         x_data_seq.extend(
             [ (x_data_set[fid*config.dataset_days + i: fid*config.dataset_days + i + config.time_step, :]).tolist() for i in range(config.dataset_days - config.time_step - 1)]
                     )
     # 每个序列的标签 [序列数,]
     y_data_seq = []
-    for fid in range(2510):
+    for fid in range(config.squares):
         y_data_seq.extend(
             [ (y_data_set[fid*config.dataset_days + i +config.time_step]) for i in range(config.dataset_days - config.time_step -1)]
         )
