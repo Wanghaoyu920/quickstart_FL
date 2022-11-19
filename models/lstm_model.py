@@ -31,17 +31,17 @@ class Config:
     # 训练参数
     do_train = True
     do_predict = True
-    #add_train = False           # 是否载入已有模型参数进行增量训练
+    add_train = True           # 是否载入已有模型参数进行增量训练
     shuffle_train_data = True   # 是否对训练数据做shuffle
 
-    train_data_rate = 0.75      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
+    train_data_rate = 0.95      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     dataset_days = 366           #数据集有多少天
     squares = 2001          #数据集中有多少个方格
 
-    batch_size = 16
-    learning_rate = 0.0002
-    epoch = 100                  # 整个训练集被训练多少遍，不考虑早停的前提下
-    patience = 5                # 训练多少epoch，验证集没提升就停掉
+    batch_size = 1
+    learning_rate = 0.0001
+    epoch = 5                  # 整个训练集被训练多少遍，不考虑早停的前提下
+    patience = 10                # 训练多少epoch，验证集没提升就停掉
     random_seed = 42            # 随机种子，保证可复现
 
 class Net(Module):
@@ -91,10 +91,10 @@ def load_data(csv_root_dir,config:Config):
     y_data_set = data_set[:,-1]  #一个向量
 
     ####生成数据序列，每一个序列中报告N天的数据 csv文件中已按照序列的形式摆放，[0-30,31-61,...] 是一个序列
-    x_data_seq = [ x_data_set[i*config.time_step:i*config.time_step+config.time_step-1,:] for i in range(len(y_data_set)/config.time_step)]
+    x_data_seq = [ x_data_set[i*config.time_step:i*config.time_step+config.time_step-1,:] for i in range(len(y_data_set)//config.time_step)]
 
     # 每个序列的标签 [序列数,]
-    y_data_seq = [y_data_set[i*config.time_step+config.time_step-1] for i in range(len(y_data_set)/config.time_step) ]
+    y_data_seq = [y_data_set[i*config.time_step+config.time_step-1] for i in range(len(y_data_set)//config.time_step) ]
 
     x_data_seq = np.array(x_data_seq)
     y_data_seq = np.array(y_data_seq)

@@ -72,8 +72,8 @@ def train(net,config,train_loader,test_loader):
 
         # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
         valid_loss_array,valid_result_array = test(net,test_loader)  #评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
-        train_loss_cur_mean = np.mean(train_loss_array) *10000 #训练loss的均值
-        valid_loss_cur_mean = np.mean(valid_loss_array)*10000  #评估loss的均值
+        train_loss_cur_mean = np.mean(train_loss_array)  #训练loss的均值
+        valid_loss_cur_mean = np.mean(valid_loss_array)  #评估loss的均值
         print(f"train_loss_mean:{train_loss_cur_mean} valid_loss_mean:{valid_loss_cur_mean} \n")
         epochs_train_loss.append(train_loss_cur_mean)
         epochs_test_loss.append(valid_loss_cur_mean)
@@ -114,13 +114,13 @@ def display_result(history_result):
     plt.legend()
     plt.show()
 
-
 if __name__=="__main__":
     config = Config()
     print("Please wait...")
     np.random.seed(config.random_seed)  # 设置随机种子，保证可复现
     net = Net(config)  #创建网络
-    # net.load_state_dict(torch.load("./lstm_model.pth"))
+    if config.add_train==True:
+        net.load_state_dict(torch.load("./lstm_model.pth"))
     net = net.to(DEVICE)
     print(".....Net has created...")
     train_loader,test_loader = load_data("../.",config)  #加载数据集
@@ -128,6 +128,6 @@ if __name__=="__main__":
     history_result =  train(net,config,train_loader,test_loader) #训练模型
     display_result(history_result)
 
-    # _,valid_result_array=test(net,test_loader)  #测试
-    # draw_res(history_dict ,test_loader)
+    _,valid_result_array=test(net,test_loader)  #测试
+    draw_res(valid_result_array ,test_loader)
 
