@@ -72,8 +72,8 @@ def train(net,config,train_loader,test_loader):
 
         # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
         valid_loss_array,valid_result_array = test(net,test_loader)  #评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
-        train_loss_cur_mean = np.mean(train_loss_array)  #训练loss的均值
-        valid_loss_cur_mean = np.mean(valid_loss_array)  #评估loss的均值
+        train_loss_cur_mean = np.mean(train_loss_array) *10000 #训练loss的均值
+        valid_loss_cur_mean = np.mean(valid_loss_array)*10000  #评估loss的均值
         print(f"train_loss_mean:{train_loss_cur_mean} valid_loss_mean:{valid_loss_cur_mean} \n")
         epochs_train_loss.append(train_loss_cur_mean)
         epochs_test_loss.append(valid_loss_cur_mean)

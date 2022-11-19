@@ -25,7 +25,8 @@ class Config:
     output_size = 1             #Liner层的输出大小
     lstm_layers = 2             # LSTM的堆叠层数
     dropout_rate = 0.5          # dropout概率
-    time_step = 36              # 这个参数很重要，是设置用前多少天的数据来预测，也是LSTM的time step数，请保证训练数据量大于它
+    time_step = 31              # 这个参数很重要，是设置用前多少天的数据来预测，也是LSTM的time step数，请保证训练数据量大于它
+    #time_step不能乱改，依赖于提供的数据集文件
 
     # 训练参数
     do_train = True
@@ -33,19 +34,15 @@ class Config:
     #add_train = False           # 是否载入已有模型参数进行增量训练
     shuffle_train_data = True   # 是否对训练数据做shuffle
 
-    train_data_rate = 0.65      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
+    train_data_rate = 0.75      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     dataset_days = 366           #数据集有多少天
     squares = 2001          #数据集中有多少个方格
 
-    batch_size = 32
+    batch_size = 16
     learning_rate = 0.0002
-    epoch = 200                  # 整个训练集被训练多少遍，不考虑早停的前提下
-    patience = 3                # 训练多少epoch，验证集没提升就停掉
+    epoch = 100                  # 整个训练集被训练多少遍，不考虑早停的前提下
+    patience = 5                # 训练多少epoch，验证集没提升就停掉
     random_seed = 42            # 随机种子，保证可复现
-
-    # 训练模式
-    debug_mode = False  # 调试模式下，是为了跑通代码，追求快
-    debug_num = 500  # 仅用debug_num条数据来调试
 
 class Net(Module):
     '''
@@ -68,11 +65,11 @@ class Net(Module):
         # linear_out = self.sigmoid(linear_out)
         return linear_out, hidden
 
-
-#加载数据
+#加载训练集数据（火灾样本和非火灾样本比例接近，且已经按照序列的形式放好，只需要按照顺序读取到序列中即可）
+#数据序列 [[序列一，一个方格的连续30天],[],...]  注意样本是第31天
 def load_data(csv_root_dir,config:Config):
     # 加载数据文件
-    source_datafile = pd.read_csv(csv_root_dir + "/data/田林县2016数据集_1_OK.csv",
+    source_datafile = pd.read_csv(csv_root_dir + "/data/田林县2016数据集_训练集数据_序列30_OK.csv",
                                   usecols=['坡度','坡向','EVI','到河道距离','到公路距离','PRS','TEM','RHU','PRE','WIN','WIN_Dir','SSD','GST','Fire'],
                                   dtype=np.float32, index_col=None, header=0)
 
@@ -93,19 +90,12 @@ def load_data(csv_root_dir,config:Config):
     x_data_set = data_set[:,:-1] #二维矩阵
     y_data_set = data_set[:,-1]  #一个向量
 
-    ####生成数据序列，每一个序列中报告N天的数据，例如序列的长度设定为20
-    # 则序列[0-19,20-39,...]  [序列数,time_step,10特征]
-    x_data_seq = []
-    for fid in  range(config.squares):  #每一个fid代表一个小方格，即地理上的1km*1km区域。将崇礼区划分为2510个区域。
-        x_data_seq.extend(
-            [ (x_data_set[fid*config.dataset_days + i: fid*config.dataset_days + i + config.time_step, :]).tolist() for i in range(config.dataset_days - config.time_step - 1)]
-                    )
+    ####生成数据序列，每一个序列中报告N天的数据 csv文件中已按照序列的形式摆放，[0-30,31-61,...] 是一个序列
+    x_data_seq = [ x_data_set[i*config.time_step:i*config.time_step+config.time_step-1,:] for i in range(len(y_data_set)/config.time_step)]
+
     # 每个序列的标签 [序列数,]
-    y_data_seq = []
-    for fid in range(config.squares):
-        y_data_seq.extend(
-            [ (y_data_set[fid*config.dataset_days + i +config.time_step]) for i in range(config.dataset_days - config.time_step -1)]
-        )
+    y_data_seq = [y_data_set[i*config.time_step+config.time_step-1] for i in range(len(y_data_set)/config.time_step) ]
+
     x_data_seq = np.array(x_data_seq)
     y_data_seq = np.array(y_data_seq)
     if __name__ == '__main__':
@@ -136,3 +126,72 @@ if __name__=='__main__':
     config= Config()
     train_loader,test_loader=load_data("../.", config)
     print("load_data返回的结果:",train_loader,test_loader)
+
+
+# #加载数据
+# def load_data(csv_root_dir,config:Config):
+#     # 加载数据文件
+#     source_datafile = pd.read_csv(csv_root_dir + "/data/田林县2016数据集_1_OK.csv",
+#                                   usecols=['坡度','坡向','EVI','到河道距离','到公路距离','PRS','TEM','RHU','PRE','WIN','WIN_Dir','SSD','GST','Fire'],
+#                                   dtype=np.float32, index_col=None, header=0)
+#
+#     if __name__=='__main__':
+#         print(source_datafile)
+#
+#     # 数据转numpy数组
+#     data_set = source_datafile.to_numpy()
+#     if __name__ == '__main__':
+#         print(data_set)
+#
+#     # 数据无量纲化处理
+#     data_set[:, :-1] = StandardScaler().fit_transform(data_set[:, :-1])
+#     if __name__ == '__main__':
+#         print(data_set)
+#
+#     #分离出数据的x和y
+#     x_data_set = data_set[:,:-1] #二维矩阵
+#     y_data_set = data_set[:,-1]  #一个向量
+#
+#     ####生成数据序列，每一个序列中报告N天的数据，例如序列的长度设定为20
+#     # 则序列[0-19,20-39,...]  [序列数,time_step,10特征]
+#     x_data_seq = []
+#     for fid in  range(config.squares):  #每一个fid代表一个小方格，即地理上的1km*1km区域。将崇礼区划分为2510个区域。
+#         x_data_seq.extend(
+#             [ (x_data_set[fid*config.dataset_days + i: fid*config.dataset_days + i + config.time_step, :]).tolist() for i in range(config.dataset_days - config.time_step - 1)]
+#                     )
+#     # 每个序列的标签 [序列数,]
+#     y_data_seq = []
+#     for fid in range(config.squares):
+#         y_data_seq.extend(
+#             [ (y_data_set[fid*config.dataset_days + i +config.time_step]) for i in range(config.dataset_days - config.time_step -1)]
+#         )
+#     x_data_seq = np.array(x_data_seq)
+#     y_data_seq = np.array(y_data_seq)
+#     if __name__ == '__main__':
+#         print("求得shape-x_data_seq，y_data_seq:", x_data_seq.shape, y_data_seq.shape)
+#
+#         # 训练测试集分割
+#     train_x, test_x, train_y, test_y = train_test_split(x_data_seq, y_data_seq, random_state=config.random_seed,
+#                                                         shuffle=config.shuffle_train_data,
+#                                                         test_size=1 - config.train_data_rate)
+#     if __name__ == '__main__':
+#         print("训练集train_x，train_y的shape:", train_x.shape, train_y.shape)
+#         print("测试集test_x,test_y的shape:", test_x.shape, test_y.shape)
+#
+#     # 转为tensor类型
+#     tensor_train_x, tensor_train_y = torch.FloatTensor(train_x), torch.FloatTensor(train_y)
+#     tensor_test_x, tensor_test_y = torch.FloatTensor(test_x), torch.FloatTensor(test_y)
+#
+#     # 转换成torch的DataSet
+#     train_data_set = Data.TensorDataset(tensor_train_x, tensor_train_y)
+#     test_data_set = Data.TensorDataset(tensor_test_x, tensor_test_y)
+#     if __name__ == '__main__':
+#         print(train_data_set)
+#         print(test_data_set)
+#
+#     return DataLoader(train_data_set, batch_size=config.batch_size), DataLoader(test_data_set,
+#                                                                                 batch_size=config.batch_size)  # 返回两个数据加载器 返回的数据应该是三维的
+# if __name__=='__main__':
+#     config= Config()
+#     train_loader,test_loader=load_data("../.", config)
+#     print("load_data返回的结果:",train_loader,test_loader)
