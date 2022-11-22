@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from models.lstm_model import Net,Config,load_data
 from tqdm import tqdm
-
+from sklearn.metrics import roc_auc_score
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 """
@@ -35,8 +35,11 @@ def test(net,test_loader):
         valid_result_array.extend( [ pp.item() for pp in  pred_Y])
     valid_result_array = np.array(valid_result_array)
     valid_y_array = np.array(valid_y_array)
+    valid_result_array[valid_result_array>1.0] = 1.0
+    valid_result_array[valid_result_array<0.0] = 0.0
+    auc = roc_auc_score(valid_y_array, valid_result_array)
     # acc = len(valid_y_array[valid_result_array==valid_y_array])/len(valid_result_array)
-    return valid_loss_array,valid_result_array
+    return valid_loss_array,valid_result_array,auc
 
 #模型训练函数
 def train(net,config,train_loader,test_loader):
@@ -46,6 +49,8 @@ def train(net,config,train_loader,test_loader):
 
     epochs_train_loss = []  #存储训练过程中的损失值
     epochs_test_loss = []   #存储测试损失值
+    epochs_test_auc = []   #存储测试auc
+
 
     valid_loss_min = float("inf")  #正无穷
     bad_epoch = 0
@@ -71,12 +76,14 @@ def train(net,config,train_loader,test_loader):
             #print("train_loss:",loss)
 
         # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
-        valid_loss_array,valid_result_array = test(net,test_loader)  #评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
+        valid_loss_array,valid_result_array,auc = test(net,test_loader)  #评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
         train_loss_cur_mean = np.mean(train_loss_array)  #训练loss的均值
         valid_loss_cur_mean = np.mean(valid_loss_array)  #评估loss的均值
+
         print(f"train_loss_mean:{train_loss_cur_mean} valid_loss_mean:{valid_loss_cur_mean} \n")
         epochs_train_loss.append(train_loss_cur_mean)
         epochs_test_loss.append(valid_loss_cur_mean)
+        epochs_test_auc.append(auc)
         if valid_loss_cur_mean < valid_loss_min:  #存储最好的模型，如果当前的平均loss小于历史最小的loss
             valid_loss_min = valid_loss_cur_mean
             bad_epoch = 0
@@ -87,7 +94,7 @@ def train(net,config,train_loader,test_loader):
                 print(" The training stops early in epoch {}".format(epoch))
                 break
     #返回训练结果
-    return epochs_train_loss,epochs_test_loss
+    return epochs_train_loss,epochs_test_loss,epochs_test_auc
 
 def draw_res(valid_result_array,test_loader):
     y_label = []
@@ -95,21 +102,32 @@ def draw_res(valid_result_array,test_loader):
         y_label.extend([ll.item() for ll in l ])
     print(y_label)
     print(valid_result_array)
+
     plt.plot(np.arange(len(y_label)),y_label,color='red',label='实际值')
     plt.plot(np.arange(len(y_label)),valid_result_array,color='green',label='预测值')
     plt.xlabel("Time")
     plt.ylabel("Is fire")
     plt.rcParams['font.sans-serif'] = ['SimHei']
     plt.legend()
+
     plt.show()
     # valid_result_array = np.array(valid_result_array)
     # y_label = np.array(y_label)
 def display_result(history_result):
-    epochs_train_loss, epochs_test_loss = history_result
-    plt.plot(np.arange(len(epochs_train_loss)), epochs_train_loss, color='red', label='epochs_train_loss')
-    plt.plot(np.arange(len(epochs_test_loss)), epochs_test_loss, color='green', label='epochs_test_loss')
+    epochs_train_loss, epochs_test_loss,epochs_test_auc = history_result
+    plt.subplot(1, 2, 1)  # 第一个图
+    plt.plot(np.arange(len(epochs_train_loss)), epochs_train_loss, 's-',color='red', label='epochs_train_loss',linewidth=1,markersize=3)
+    plt.plot(np.arange(len(epochs_test_loss)), epochs_test_loss, 's-',color='green', label='epochs_test_loss',linewidth=1,markersize=3)
     plt.xlabel("The epoch")
     plt.ylabel("Loss value")
+    plt.title("LSTM模型训练情况")
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.legend()
+    plt.subplot(1, 2, 2)  # 第二个图
+    plt.plot(np.arange(len(epochs_test_auc)),epochs_test_auc,'s-',label='epochs_train_auc',linewidth=1,markersize=3)
+    plt.xlabel("The epoch")
+    plt.ylabel("AUC value")
+    plt.title("LSTM模型每轮auc值")
     plt.rcParams['font.sans-serif'] = ['SimHei']
     plt.legend()
     plt.show()
@@ -128,6 +146,6 @@ if __name__=="__main__":
     history_result =  train(net,config,train_loader,test_loader) #训练模型
     display_result(history_result)
 
-    _,valid_result_array=test(net,test_loader)  #测试
+    _,valid_result_array,auc=test(net,test_loader)  #测试
     draw_res(valid_result_array ,test_loader)
 

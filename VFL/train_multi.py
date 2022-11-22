@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from data_utils import crypten_collate
-from model import MLP
+from models.lstm_model import Net,Config,load_data
 
 names = ["a", "b", "c"]
 feature_sizes = [50, 57, 1]
@@ -43,6 +43,7 @@ def load_encrypt_tensor(filename: str) -> crypten.CrypTensor:
     return res
 
 
+
 def make_local_dataloader(filename: str, batch_size: int, shuffle: bool = False, drop_last: bool = False) -> DataLoader:
     tensor = load_local_tensor(filename)
     dataset = TensorDataset(tensor)
@@ -50,8 +51,10 @@ def make_local_dataloader(filename: str, batch_size: int, shuffle: bool = False,
     return dataloader
 
 
-def make_mpc_model(local_model: torch.nn.Module):
-    dummy_input = torch.empty((1, 107))
+
+#生成crypten类型的网络模型
+def make_mpc_model(local_model: torch.nn.Module, config: Config):
+    dummy_input = torch.empty((1, config.input_size))
     model = crypten.nn.from_pytorch(local_model, dummy_input)
     model.encrypt()
     return model
@@ -74,7 +77,7 @@ def make_mpc_dataloader(filename: str, batch_size: int, shuffle: bool = False, d
     return dataloader
 
 
-def train_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten.nn.Module, lr: float):
+def train_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten.nn.Module, config: Config):
     total_loss = None
     count = len(dataloader)
 
@@ -85,7 +88,7 @@ def train_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten.nn
 
         model.zero_grad()
         loss_val.backward()
-        model.update_parameters(lr)
+        model.update_parameters(config.learning_rate)
 
         if total_loss is None:
             total_loss = loss_val.detach()
@@ -99,15 +102,15 @@ def train_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten.nn
 def validate_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten.nn.Module):
     model.eval()
     outs = []
-    true_ys = []
+    true_lable_list = []
     total_loss = None
     count = len(dataloader)
     for xs, ys in tqdm(dataloader, file=sys.stdout):
         out = model(xs)
-        loss_val = loss(out, ys)
+        loss_val = loss(out, ys)  #损失值
 
-        outs.append(out)
-        true_ys.append(ys)
+        outs.append(out) #模型的输出结果
+        true_lable_list.append(ys)
 
         if total_loss is None:
             total_loss = loss_val.detach()
@@ -129,37 +132,9 @@ def validate_mpc(dataloader: DataLoader, model: crypten.nn.Module, loss: crypten
            roc_auc_score(true_ys, pred_probs)
 
 
-def test():
-    crypten.init()
-    rank = comm.get().get_rank()
-
-    name = names[rank]
-    filename = f"dataset/{name}/train.npz"
-
-    mpc_tensor = load_encrypt_tensor(filename)
-    feature, label = mpc_tensor[:32, :-1], mpc_tensor[:32, -1]
-    print(feature.shape, feature.ptype)
-
-    model = MLP()
-    mpc_model = make_mpc_model(model)
-    loss = crypten.nn.BCELoss()
-
-    mpc_model.train()
-    out = mpc_model(feature)
-    prob = out.sigmoid()
-    loss_val = loss(prob, label)
-
-    mpc_model.zero_grad()
-    loss_val.backward()
-    mpc_model.update_parameters(1e-3)
-
-
 def main():
-    # RANK = 0
-    epochs = 30
-    batch_size = 32
-    lr = 1e-3
-    eval_every = 1
+    config = Config()
+    model = Net(config)  # 创建模型 LSTM
 
     crypten.init()  #初始化环境
 
@@ -170,20 +145,18 @@ def main():
     train_filename = f"dataset/{name}/train.npz"
     test_filename = f"dataset/{name}/test.npz"
 
-    train_dataloader = make_mpc_dataloader(train_filename, batch_size, shuffle=True, drop_last=False)
-    test_dataloader = make_mpc_dataloader(test_filename, batch_size, shuffle=False, drop_last=False)
+    train_dataloader = make_mpc_dataloader(train_filename, config.batch_size, shuffle=True, drop_last=False)
+    test_dataloader = make_mpc_dataloader(test_filename, config.batch_size, shuffle=False, drop_last=False)
 
-    model = MLP()
-    mpc_model = make_mpc_model(model)
-    mpc_loss = crypten.nn.BCEWithLogitsLoss()
+    mpc_model = make_mpc_model(model,config)
+    mpc_loss = crypten.nn.MSELoss() #定义损失函数
 
-    for epoch in range(epochs):
-        train_loss = train_mpc(train_dataloader, mpc_model, mpc_loss, lr)
-        print(f"epoch: {epoch}, train loss: {train_loss}")
+    for epoch in range(config.epoch):
+        train_loss = train_mpc(train_dataloader, mpc_model, mpc_loss, config)
+        print(f"epoch: {epoch+1}/{config.epoch}, train loss: {train_loss}")
 
-        if epoch % eval_every == 0:
-            validate_loss, p, r, auc = validate_mpc(test_dataloader, mpc_model, mpc_loss)
-            print(f"epoch: {epoch}, validate loss: {validate_loss}, precision: {p}, recall: {r}, auc: {auc}")
+        validate_loss, p, r, auc = validate_mpc(test_dataloader, mpc_model, mpc_loss)
+        print(f"epoch: {epoch+1}/{config.epoch}, validate loss: {validate_loss}, precision: {p}, recall: {r}, auc: {auc}")
 
 
 if __name__ == '__main__':
