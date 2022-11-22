@@ -6,7 +6,6 @@ from flwr.common import Metrics
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score
 
 from models.lstm_model import Config, Net,load_data
 
@@ -34,11 +33,8 @@ def test(net,test_loader):
         valid_result_array.extend([pp.item() for pp in pred_Y])
     valid_result_array = np.array(valid_result_array)
     valid_y_array = np.array(valid_y_array)
-    valid_result_array[valid_result_array > 1.0] = 1.0
-    valid_result_array[valid_result_array < 0.0] = 0.0
-    auc = roc_auc_score(valid_y_array, valid_result_array)
     # acc = len(valid_y_array[valid_result_array==valid_y_array])/len(valid_result_array)
-    return valid_loss_array, valid_result_array, auc
+    return valid_loss_array, valid_result_array
 
 
 # Define metric aggregation function
@@ -47,19 +43,19 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # print("------配置聚合指标函数:", end="")
     # print(metrics)
     # Multiply accuracy of each client by number of examples used
-    auces = [m["auc"] for num_examples, m in metrics] #
-
+    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics] #求解每个客户端中预测正确的个数
+    examples = [num_examples for num_examples, _ in metrics] #求解每个客户端中的样本数
     # Aggregate and return custom metric (weighted average)
-    return {"auc": np.mean(auces)}  #计算出该轮次的总体正确率
+    return {"accuracy": sum(accuracies) / sum(examples)}  #计算出该轮次的总体正确率
 
 #每一轮联邦学习结束后服务器端的的评估函数，返回损失值和其他的指标字典
 def evaluate_fn(server_round, parameters_ndarrays,_null)->(float,Metrics):
     params_dict = zip(net.state_dict().keys(), parameters_ndarrays)  # Python内置的打包函数，按照关键词打包
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
     net.load_state_dict(state_dict, strict=True)  # 设置参数
-    loss_array, result_array,auc = test(net, testloader)
+    loss_array, result_array = test(net, testloader)
     loss_mean = np.mean(loss_array)
-    return loss_mean,{'auc':auc}
+    return loss_mean,{}
 
 config = Config()#LSTM模型的配置
 net = Net(config).to(DEVICE)  #服务器维护的模型
@@ -70,10 +66,9 @@ trainloader, testloader = load_data("../../.",config)  #两个数据加载器（
 #评估聚合指标函数
 init_model_param =  [val.cpu().numpy() for _, val in net.state_dict().items()]
 strategy = fl.server.strategy.FedAvg(initial_parameters=fl.common.ndarrays_to_parameters(init_model_param),
-evaluate_metrics_aggregation_fn=weighted_average,
                                      evaluate_fn=evaluate_fn)#配置聚合指标函数 weighted_average
 
-num_rounds = 80  #联合5次
+num_rounds = 3  #联合5次
 
 # Start Flower server
 history_res =fl.server.start_server(
@@ -87,29 +82,11 @@ history_res =fl.server.start_server(
 print("服务器评估的损失值：",history_res.losses_centralized)
 print("每一轮由客户端评估的损失值：",history_res.losses_distributed)
 
-print("服务器评估的自定义指标：",history_res.metrics_centralized)
-print("每一轮由客户端算出的自定义指标：",history_res.metrics_distributed)
+print("服务器评估的损失值：",history_res.metrics_centralized)
+print("每一轮由客户端算出的准确度：",history_res.metrics_distributed)
 #plt.plot(history_res.metrics_distributed.get("accuracy"))
 losses_centralized_list = [l for index,l in history_res.losses_centralized]
 losses_distributed_list = [l for index,l in history_res.losses_distributed]
 
-auc_centralized_list =[a for index,a in history_res.metrics_centralized.get("auc")]
-auc_distributed_list = [a for index,a in history_res.metrics_distributed.get("auc")]
-
-plt.subplot(1,2,1)
-plt.plot(np.arange(num_rounds),losses_centralized_list[1:],'s-',label='由服务器评估的平均损失值',linewidth=1,markersize=3)
-plt.plot(np.arange(num_rounds), losses_distributed_list,'s-',label='由客户端评估的平均损失值',linewidth=1,markersize=3)
-plt.xlabel("The epoch")
-plt.ylabel("Loss value")
-plt.title("LSTM在横向联邦学习中")
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.legend()
-plt.subplot(1,2,2)
-plt.plot(np.arange(num_rounds),auc_centralized_list[1:],'s-',label='由服务器评估的AUC',linewidth=1,markersize=3)
-plt.plot(np.arange(num_rounds), auc_distributed_list,'s-',label='由客户端评估的平均AUC',linewidth=1,markersize=3)
-plt.xlabel("The epoch")
-plt.ylabel("AUC value")
-plt.title("LSTM在横向联邦学习中")
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.legend()
+plt.plot(np.arange(num_rounds),losses_centralized_list[1:], losses_distributed_list,'s-',linewidth=1,color=[0,0.7,0.2],markersize=8)
 plt.show()

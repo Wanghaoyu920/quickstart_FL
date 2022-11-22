@@ -5,7 +5,6 @@ import flwr as fl
 import numpy as np
 import torch
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score
 from models.lstm_model import Net,Config,load_data
 warnings.filterwarnings("ignore", category=UserWarning)
 # import os
@@ -34,11 +33,8 @@ def test(net,test_loader):
         valid_result_array.extend([pp.item() for pp in pred_Y])
     valid_result_array = np.array(valid_result_array)
     valid_y_array = np.array(valid_y_array)
-    valid_result_array[valid_result_array > 1.0] = 1.0
-    valid_result_array[valid_result_array < 0.0] = 0.0
-    auc = roc_auc_score(valid_y_array, valid_result_array)
     # acc = len(valid_y_array[valid_result_array==valid_y_array])/len(valid_result_array)
-    return valid_loss_array, valid_result_array, auc
+    return valid_loss_array, valid_result_array
 
 
 
@@ -50,7 +46,6 @@ def train(net,config,train_loader,test_loader):
 
     epochs_train_loss = []  # 存储训练过程中的损失值
     epochs_test_loss = []  # 存储测试损失值
-    epochs_test_auc = []  # 存储测试auc
 
     valid_loss_min = float("inf")  # 正无穷
     bad_epoch = 0
@@ -75,15 +70,13 @@ def train(net,config,train_loader,test_loader):
             train_loss_array.append(loss.item())  # 保存训练过程中的损失值
             # print("train_loss:",loss)
         # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
-        valid_loss_array, valid_result_array,auc = test(net, test_loader)  # 评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
+        valid_loss_array, valid_result_array = test(net, test_loader)  # 评估当前的模型,得到目前的损失值数组,预测结果数组和正确率
         train_loss_cur_mean = np.mean(train_loss_array)  # 训练loss的均值
         valid_loss_cur_mean = np.mean(valid_loss_array)  # 评估loss的均值
-
         print(f"train_loss_mean:{train_loss_cur_mean} valid_loss_mean:{valid_loss_cur_mean} \n")
         epochs_train_loss.append(train_loss_cur_mean)
         epochs_test_loss.append(valid_loss_cur_mean)
-        epochs_test_auc.append(auc)
-    return epochs_train_loss,epochs_test_loss,epochs_test_auc
+    return epochs_train_loss,epochs_test_loss
 
 
 config = Config() #自定义LSTM网络的相关配置类
@@ -118,9 +111,9 @@ class FlowerClient(fl.client.NumPyClient):
         print("开启本地评估,接收到服务器的联邦学习配置为:",fl_config)
         # 服务器接收的（全局）模型参数和用于自定义本地评估过程的配置值字典。
         self.set_parameters(parameters)
-        loss_array,result_array,auc = test(net,testloader)
+        loss_array,result_array = test(net,testloader)
         print(f"本地评估结束,loss_mean:{np.mean(loss_array)}, 测试数据数:{len(testloader.dataset)}")
-        return np.mean(loss_array), len(testloader.dataset), {'auc':auc}
+        return np.mean(loss_array), len(testloader.dataset), {}
 
 
 # Start Flower client
