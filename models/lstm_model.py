@@ -38,7 +38,7 @@ class Config:
     dataset_days = 366           #数据集有多少天
     squares = 2001          #数据集中有多少个方格
 
-    batch_size = 32
+    batch_size = 16
     learning_rate = 0.0001
     epoch = 10                  # 整个训练集被训练多少遍，不考虑早停的前提下
     patience = 10                # 训练多少epoch，验证集没提升就停掉
@@ -101,7 +101,7 @@ def load_data(csv_root_dir,config:Config):
     if __name__ == '__main__':
         print("求得shape-x_data_seq，y_data_seq:", x_data_seq.shape, y_data_seq.shape)
 
-        # 训练测试集分割
+    # 训练测试集分割
     train_x, test_x, train_y, test_y = train_test_split(x_data_seq, y_data_seq, random_state=config.random_seed,
                                                         shuffle=config.shuffle_train_data,
                                                         test_size=1 - config.train_data_rate)

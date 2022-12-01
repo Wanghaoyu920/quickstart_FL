@@ -44,6 +44,7 @@ def test(net,test_loader):
 #模型训练函数
 def train(net,config,train_loader,test_loader):
     optimizer = torch.optim.Adam(net.parameters(), lr=config.learning_rate) #优化器
+
     # criterion = torch.nn.CrossEntropyLoss()      # 这两句是定义优化器和loss
     criterion = torch.nn.MSELoss()      # 这两句是定义优化器和loss
 
