@@ -4,6 +4,7 @@ import crypten
 import crypten.communicator as comm
 import numpy as np
 import torch
+from crypten import mpc
 from sklearn import metrics
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import train_test_split
